@@ -33,14 +33,13 @@ struct RBFKernel {
   }
 };
 
+// must E[Y] = 0
 struct GaussianProcessRegression {
   using D = double;
   using Kernel = RBFKernel<D>;
   int S = 0;
   std::vector<std::vector<D>> X;
   std::vector<D> Y;
-  D Ymu;
-  std::vector<D> normY;
 
   Matrix<D> K;
   Kernel kernel;
@@ -57,17 +56,10 @@ struct GaussianProcessRegression {
   }
   void build() {
     K = Matrix<D>(S, S);
-    Ymu = 0;
     for(int i = 0; i < S; i++) {
       for(int j = 0; j <= i; j++) {
         K[i][j] = K[j][i] = kernel(i, X[i], j, X[j]);
       }
-      Ymu += Y[i];
-    }
-    Ymu /= D(S);
-    normY.resize(S);
-    for(int i = 0; i < S; i++) {
-      normY[i] = Y[i] - Ymu;
     }
     linsol.init(K);
   }
@@ -81,10 +73,10 @@ struct GaussianProcessRegression {
     D mu = 0;
     D sigma = kb;
     for(int k = 0; k < S; k++) {
-      mu += ktk[k] * normY[k];
+      mu += ktk[k] * Y[k];
       sigma -= ktk[k] * ka[k];
     }
-    return { mu + Ymu, sigma };
+    return { mu, sigma };
   }
   void scg(const D eta) {
     std::vector<Matrix<D>> Kd(kernel.DDim, Matrix<D>(S, S));
@@ -97,7 +89,7 @@ struct GaussianProcessRegression {
       }
     }
     std::vector<D> delta(kernel.DDim);
-    std::vector<D> kty = linsol.solve(normY);
+    std::vector<D> kty = linsol.solve(Y);
     for(int k = 0; k < kernel.DDim; k++) {
       for(int i = 0; i < S; i++) {
         for(int j = 0; j < S; j++) {
@@ -112,10 +104,10 @@ struct GaussianProcessRegression {
   }
   D log_likelihood() const {
     D log_det = linsol.log_det();
-    auto Kiy = linsol.solve(normY);
+    auto Kiy = linsol.solve(Y);
     D yky = 0;
     for(int i = 0; i < S; i++) {
-      yky += normY[i] * Kiy[i];
+      yky += Y[i] * Kiy[i];
     }
     return - log_det + yky;
   }
