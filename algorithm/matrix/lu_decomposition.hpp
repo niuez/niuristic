@@ -1,3 +1,4 @@
+#pragma once
 #include "matrix.hpp"
 
 // http://www.ced.is.utsunomiya-u.ac.jp/lecture/2011/prog/p2/kadai3/no3/lu.pdf
