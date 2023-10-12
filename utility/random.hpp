@@ -25,7 +25,7 @@ struct discrate_probability_distribution {
 
   template<class URGB>
     int operator()(URGB& g) const {
-      double v = fast_int_distribution<int>(0, acc.back() - 1)(g);
+      double v = fast_int_distribution<int>(1, acc.back())(g);
       return std::lower_bound(acc.begin(), acc.end(), v) - acc.begin();
     }
 };
