@@ -22,12 +22,12 @@ struct arraynd {
     a.fill(t);
   }
   template<class... Index>
-  const T& operator[](Index... is) const {
+  const T& operator()(Index... is) const {
     static_assert(sizeof...(Index) == sizeof...(Size));
     return a[to_index<0>(0, std::forward<Index>(is)...)];
   }
   template<class... Index>
-  T& operator[](Index... is) {
+  T& operator()(Index... is) {
     static_assert(sizeof...(Index) == sizeof...(Size));
     return a[to_index<0>(0, std::forward<Index>(is)...)];
   }
