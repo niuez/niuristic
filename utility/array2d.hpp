@@ -7,10 +7,10 @@ struct array2d {
   void fill(const T& t) {
     a.fill(t);
   }
-  const T& at(int i, int j) const {
+  const T& operator()(int i, int j) const {
     return a[i * W + j];
   }
-  T& at(int i, int j) {
+  T& operator()(int i, int j) {
     return a[i * W + j];
   }
 };
