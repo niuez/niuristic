@@ -1,1 +1,1 @@
-pub mod fixed_bitset;
+pub mod bitset;
