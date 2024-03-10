@@ -1,6 +1,6 @@
 #[allow(unused)]
 pub mod ettbeam {
-    use crate::util::nop_hash::NopHashMap;
+    use crate::util::nop_hash::{ NopHashSet, NopHashMap };
     use std::cmp::Ordering;
 
     pub trait BeamState {
@@ -133,6 +133,44 @@ pub mod ettbeam {
         }
     }
 
+    pub struct SortSelector<State: BeamState> {
+        width: usize,
+        pub selected: Vec<Leaf<State>>,
+        map: NopHashSet<u64>,
+    }
+
+    impl<State: BeamState> Selector<State> for SortSelector<State> {
+        fn push(&mut self, leaf: Leaf<State>) {
+            self.selected.push(leaf);
+        }
+    }
+
+    impl<State: BeamState> SortSelector<State> {
+        pub fn new(width: usize) -> Self {
+            Self {
+                width,
+                selected: Vec::new(),
+                map: NopHashSet::default(),
+            }
+        }
+        pub fn clear(&mut self) {
+            self.selected.clear();
+            self.map.clear();
+        }
+        pub fn select(&mut self, beam: &mut BeamSearch<State>) {
+            if self.selected.len() > self.width {
+                self.selected.select_nth_unstable_by_key(self.width, |e| e.score);
+                self.selected.truncate(self.width);
+            }
+            self.selected.sort_unstable_by_key(|a| a.score);
+            for leaf in self.selected.iter() {
+                if self.map.insert(leaf.hash) {
+                    beam.select(leaf);
+                }
+            }
+        }
+    }
+
     struct MaxSeg<S: Copy + Ord + Default> {
         n: usize,
         seg: Vec<(bool, S, usize)>,
@@ -236,5 +274,6 @@ pub mod ettbeam {
         }
     }
 }
+
 
 
