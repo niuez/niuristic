@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 rustc-hash = "=1.1.0"
+nalgebra = "=0.32.3"
