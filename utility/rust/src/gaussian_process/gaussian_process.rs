@@ -99,4 +99,12 @@ impl<'a> GaussianProccessRegression<'a> {
         let sigma = kb - ktk.dot(&ka);
         (mu + self.ymean, sigma)
     }
+
+    pub fn marginal_likelihood(&self) -> f64 {
+        // ln p(y | theta) = -1/2 ln det(K) - 1/2 y^T K^-1 y - n/2 log 2pi
+        let det_log = self.k_inv.determinant().ln();
+        let Kiy = self.k_inv.solve(&self.ys).unwrap();
+        let ytKiy = self.ys.dot(Kiy);
+        return -det_log - ytKiy
+    }
 }
