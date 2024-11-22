@@ -6,5 +6,5 @@
 | AHC003 | - | ガウス分布 ベイズ (algorithmにまとめてある) | 
 | AHC004 | 46 | 貪欲 文字列 構築?  |
 | AHC006 | 4 | 焼きなまし 遷移先貪欲選定  |
-| AHC007 | 29 | MonteCarlo Optuna(?) |
+| AHC007 | 2 | MonteCarlo Optuna(?) |
 | AHC009 | 1 | 焼きなまし DequeState 初期解の多様性 |
