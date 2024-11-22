@@ -1,4 +1,11 @@
+use std::env;
+
 fn main() {
+
+    let args: Vec<String> = env::args().collect();
+    let l_ratio = args[1].parse::<f64>().unwrap();
+    let r_ratio = args[2].parse::<f64>().unwrap();
+
     let Input { vs, es } = Input::from_stdin();
     let mut mt = Pcg64Mcg::new(768);
     let mut ans = vec![false; M];
@@ -9,7 +16,7 @@ fn main() {
             let (u, v) = es[i];
             let d = (vs[u].x - vs[v].x) * (vs[u].x - vs[v].x) + (vs[u].y - vs[v].y) * (vs[u].y - vs[v].y);
             let d = (d as f64).sqrt().round() as i64;
-            cases[c][i] = (mt.gen_range(d..3 * d), i, u, v);
+            cases[c][i] = (mt.gen_range(l_ratio * d as f64..r_ratio * d as f64) as i64, i, u, v);
         }
         cases[c].sort();
     }
