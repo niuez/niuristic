@@ -21,7 +21,6 @@ fn main() -> Result<()> {
     eprintln!("{:?}", args);
 
     let Args { in_folder, out_folder, program } = args;
-    let program = program.join(" ");
 
     let mut in_files = WalkDir::new(in_folder)
         .into_iter().into_iter()
@@ -72,7 +71,7 @@ fn main() -> Result<()> {
 fn run_test_single_case(
     in_file: PathBuf,
     out_folder: &PathBuf,
-    program: &str,
+    program: &Vec<String>,
 ) -> Result<(PathBuf, String)> {
     let filename = in_file
         .file_name()
@@ -92,7 +91,8 @@ fn run_test_single_case(
     let stdin_pipe = Stdio::from(input_file);
     let stdout_pipe = Stdio::from(output_file);
 
-    let output = Command::new(program)
+    let output = Command::new(&program[0])
+        .args(&program[1..])
         .stdin(stdin_pipe)
         .stdout(stdout_pipe)
         .stderr(Stdio::piped())

@@ -117,8 +117,8 @@ impl State {
 
     fn climb(&mut self, input: &Input) {
         let mut mt = Mt::new(768);
-        //let mut frames = visualizer_shapes::Frames::new();
-        //frames = frames.add_frame(self.answer_visualize(input));
+        let mut frames = visualizer_shapes::Frames::new();
+        frames = frames.add_frame(self.answer_visualize(input));
         let mut iter = 0;
 
         let start = get_time();
@@ -136,7 +136,7 @@ impl State {
                 T = T0.powf(1.0 - t) * T1.powf(t);
             }
             if iter % 10000 == 0 {
-                //frames = frames.add_frame(self.answer_visualize(input));
+                frames = frames.add_frame(self.answer_visualize(input));
             }
             let len = mt.gen_range(2..20);
             let i = mt.gen_range(0..self.perm.len());
@@ -173,8 +173,8 @@ impl State {
             //eprintln!("{} {} {}", after - before, before, after);
         }
         eprintln!("iteration: {}", iter);
-        //frames = frames.add_frame(self.answer_visualize(input));
-        //frames.encode_to_file("animate.vis");
+        frames = frames.add_frame(self.answer_visualize(input));
+        frames.encode_to_file("animate.vis");
     }
 
     fn output(&self) {
@@ -188,7 +188,6 @@ impl State {
         println!();
     }
     
-    #[cfg(feature = "local")]
     fn answer_visualize(&self, input: &Input) -> visualizer_shapes::Frame {
         let mut frame = input.tile_visualize();
         for i in 0..N {
@@ -273,7 +272,6 @@ impl Input {
     fn get_value(&self, p: Pos) -> isize {
         self.value[p.x as usize][p.y as usize] as isize
     }
-    #[cfg(feature = "local")]
     fn tile_visualize(&self) -> visualizer_shapes::Frame {
         use visualizer_shapes::*;
         let mut frame = Frame::new(pos(-1.0, -1.0), pos(N as f32 + 1.0, N as f32 + 1.0));
