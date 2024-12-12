@@ -1,0 +1,25 @@
+[package]
+name = "ahc040"
+version = "0.1.0"
+edition = "2021"
+default-run = "ahc040"
+
+[features]
+default = []
+local = []
+
+[profile.release]
+debug = 1
+
+[dependencies]
+
+rand = { version = "=0.8.5", features = ["small_rng", "min_const_gen"] }
+rand_chacha = "=0.3.1"
+rand_distr = "=0.4.3"
+rand_pcg = "=0.3.1"
+itertools = "=0.11.0"
+proconio = { version = "=0.4.5", features = ["derive"] }
+once_cell = "1.20.1"
+visualizer_shapes = { path = "/home/niuez/egui_visualizer/" }
+rustc-hash = "=1.1.0"
+libm = "=0.2.7"
