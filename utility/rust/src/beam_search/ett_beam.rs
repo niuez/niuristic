@@ -5,120 +5,121 @@ pub mod ettbeam {
 
     pub trait BeamState {
         type Action: Default + Clone + std::fmt::Debug;
-        type Score: Copy + Ord + Default;
-        type Acts: IntoIterator<Item=Self::Action>;
+        type Candidate: BeamCandidate<Action=Self::Action>;
+        type Candidates: IntoIterator<Item=Self::Candidate>;
         fn forward(&mut self, act: &Self::Action);
         fn backward(&mut self, act: &Self::Action);
-        fn next_acts(&self) -> Self::Acts;
+        fn next_candidates(&self) -> Self::Candidates;
+    }
+
+    pub trait BeamCandidate {
+        type Action;
+        type Score: Default + Copy + Ord;
+        fn into_action(self) -> Self::Action;
         fn score(&self) -> Self::Score;
         fn hash(&self) -> u64;
     }
 
 
-    pub struct Leaf<State: BeamState> {
-        pub t: usize,
-        pub score: State::Score,
-        pub hash: u64,
-    }
-
-    pub trait Selector<State: BeamState> {
-        fn push(&mut self, leaf: Leaf<State>);
-    }
-    
     #[derive(Default, Clone, Debug)]
     pub struct Edge<Action: Default + Clone + std::fmt::Debug> {
         act: Action,
         down: bool,
-        selected: bool,
     }
 
     pub struct BeamSearch<State: BeamState> {
         pub state: State,
-        cur: Vec<Edge<State::Action>>,
-        sz: usize,
+        pub cur: Vec<Edge<State::Action>>,
+        pub sz: usize,
         nxt: Vec<Edge<State::Action>>,
         downs: Vec<usize>,
+        pub selector: MaxSegSelector<State>,
     }
 
     impl<State: BeamState> BeamSearch<State> {
-        pub fn new(max_width: usize, max_depth: usize, root_state: State) -> Self {
-            let mut x = Self {
+        pub fn new(width: usize, max_width: usize, max_depth: usize, root_state: State) -> Self {
+            let x = Self {
                 state: root_state,
                 cur: vec![Edge::default(); max_width],
-                sz: 1,
+                sz: 0,
                 nxt: vec![Edge::default(); max_width],
                 downs: vec![!0; max_depth],
+                selector: MaxSegSelector::new(width),
             };
-            x.cur[0].selected = true;
             x
         }
 
-        pub fn select(&mut self, leaf: &Leaf<State>) {
-            self.cur[leaf.t].selected = true;
-        }
-
-        pub fn extend<S: Selector<State>>(&mut self, selector: &mut S) {
-            let Self { ref mut state, ref cur, sz, ref mut nxt, ref mut downs } = *self;
-            let mut ni = 0;
-            let mut dl = 0;
-            let mut dr = 0;
-            for i in 0..sz {
-                let e = &cur[i];
-                if e.selected {
-                    while dl < dr {
-                        nxt[ni] = Edge { act: cur[downs[dl]].act.clone(), down: true, selected: false, };
-                        ni += 1;
-                        state.forward(&cur[downs[dl]].act);
-                        dl += 1;
-                    }
-                    for next_act in state.next_acts() {
-                        state.forward(&next_act);
-                        nxt[ni] = Edge { act: next_act.clone(), down: true, selected: false };
-                        ni += 1;
-
-                        let leaf = Leaf { t: ni, score: state.score(), hash: state.hash() };
-                        selector.push(leaf);
-
-                        state.backward(&next_act);
-                        nxt[ni].down = false;
-                        nxt[ni].selected = false;
-                        ni += 1;
-                    }
-                }
-                // 余分にdownがあるので打ち切る
-                if i + 1 == sz {
-                    for d in (0..dl).rev() {
-                        state.backward(&cur[downs[d]].act);
-                        nxt[ni].down = false;
-                        nxt[ni].selected = false;
-                        ni += 1;
-                    }
-                    break;
-                }
-                if e.down {
-                    downs[dr] = i;
-                    dr += 1;
-                }
-                else {
-                    // up
-                    if dl == dr {
-                        dl -= 1;
-                        state.backward(&cur[downs[dl]].act);
-                        nxt[ni].down = false;
-                        nxt[ni].selected = false;
-                        ni += 1;
-                    }
-                    dr -= 1;
+        pub fn extend(&mut self) {
+            let Self { ref mut state, ref cur, sz, ref mut nxt, ref mut downs, ref mut selector,} = *self;
+            if selector.selected.is_empty() {
+                // first time
+                assert_eq!(sz, 0);
+                for next_cand in state.next_candidates() {
+                    selector.push(next_cand, 0);
                 }
             }
-            std::mem::swap(&mut self.cur, &mut self.nxt);
-            self.sz = ni;
+            else {
+                let mut ni = 0;
+                let mut dl = 0;
+                let mut dr = 0;
+                let mut selected = {
+                    let mut v = selector.clear();
+                    v.sort_unstable_by(|x, y| y.1.cmp(&x.1));
+                    v
+                };
+                // eprintln!("selected {:?}", selected.iter().map(|x| x.1).collect_vec());
+                for i in 0..=sz {
+                    while selected.len() > 0 && selected.last().unwrap().1 == i {
+                        let cand = selected.pop().unwrap().0;
+                        while dl < dr {
+                            nxt[ni] = Edge { act: cur[downs[dl]].act.clone(), down: true, };
+                            ni += 1;
+                            state.forward(&cur[downs[dl]].act);
+                            dl += 1;
+                        }
+                        nxt[ni] = Edge { act: cand.into_action(), down: true, };
+                        state.forward(&nxt[ni].act);
+                        ni += 1;
+
+                        for next_cand in state.next_candidates() {
+                            selector.push(next_cand, ni);
+                        }
+                        state.backward(&nxt[ni - 1].act);
+
+                        nxt[ni].down = false;
+                        ni += 1;
+                    }
+                    if i == sz {
+                        for d in (0..dl).rev() {
+                            state.backward(&cur[downs[d]].act);
+                            nxt[ni].down = false;
+                            ni += 1;
+                        }
+                        break;
+                    }
+                    if cur[i].down {
+                        downs[dr] = i;
+                        dr += 1;
+                    }
+                    else {
+                        if dl == dr {
+                            dl -= 1;
+                            state.backward(&cur[downs[dl]].act);
+                            nxt[ni].down = false;
+                            ni += 1;
+                        }
+                        dr -= 1;
+                    }
+                }
+                std::mem::swap(&mut self.cur, &mut self.nxt);
+                self.sz = ni;
+            }
         }
 
-        pub fn acts(&mut self, leaf: &Leaf<State>) -> Vec<State::Action> {
+        pub fn acts(&mut self, leaf: usize) -> Vec<State::Action> {
             let mut acts = vec![];
-            eprintln!("{} {} {}", self.cur.len(), self.sz, leaf.t);
-            for i in 0..leaf.t {
+            eprintln!("{} {} {}", self.cur.len(), self.sz, leaf);
+            for i in 0..leaf {
                 let e = &self.cur[i];
                 if e.down {
                     self.state.forward(&e.act);
@@ -130,44 +131,6 @@ pub mod ettbeam {
                 }
             }
             acts
-        }
-    }
-
-    pub struct SortSelector<State: BeamState> {
-        width: usize,
-        pub selected: Vec<Leaf<State>>,
-        map: NopHashSet<u64>,
-    }
-
-    impl<State: BeamState> Selector<State> for SortSelector<State> {
-        fn push(&mut self, leaf: Leaf<State>) {
-            self.selected.push(leaf);
-        }
-    }
-
-    impl<State: BeamState> SortSelector<State> {
-        pub fn new(width: usize) -> Self {
-            Self {
-                width,
-                selected: Vec::new(),
-                map: NopHashSet::default(),
-            }
-        }
-        pub fn clear(&mut self) {
-            self.selected.clear();
-            self.map.clear();
-        }
-        pub fn select(&mut self, beam: &mut BeamSearch<State>) {
-            if self.selected.len() > self.width {
-                self.selected.select_nth_unstable_by_key(self.width, |e| e.score);
-                self.selected.truncate(self.width);
-            }
-            self.selected.sort_unstable_by_key(|a| a.score);
-            for leaf in self.selected.iter() {
-                if self.map.insert(leaf.hash) {
-                    beam.select(leaf);
-                }
-            }
         }
     }
 
@@ -215,9 +178,9 @@ pub mod ettbeam {
     pub struct MaxSegSelector<State: BeamState> {
         width: usize,
         full: bool,
-        pub selected: Vec<Leaf<State>>,
+        pub selected: Vec<(State::Candidate, usize)>,
         hash_to_idx: NopHashMap<u64, usize>,
-        seg: MaxSeg<State::Score>,
+        seg: MaxSeg<<State::Candidate as BeamCandidate>::Score>,
     }
 
     impl<State: BeamState> MaxSegSelector<State> {
@@ -230,43 +193,43 @@ pub mod ettbeam {
                 seg: MaxSeg::new(width),
             }
         }
-        pub fn clear(&mut self) {
-            self.selected.clear();
+        pub fn clear(&mut self) -> Vec<(State::Candidate, usize)> {
             self.hash_to_idx.clear();
             self.full = false;
+            std::mem::replace(&mut self.selected, vec![])
         }
-    }
 
-    impl<State: BeamState> Selector<State> for MaxSegSelector<State> {
-        fn push(&mut self, leaf: Leaf<State>) {
-            if self.full && leaf.score >= self.seg.all().0 {
+        fn push(&mut self, cand: State::Candidate, parent: usize) {
+            let score = cand.score();
+            let hash = cand.hash();
+            if self.full && score >= self.seg.all().0 {
                 return;
             }
-            if let Some(bi) = self.hash_to_idx.get(&leaf.hash) {
+            if let Some(bi) = self.hash_to_idx.get(&hash) {
                 // hashが同じものが存在したとき
-                if leaf.score < self.selected[*bi].score {
+                if score < self.selected[*bi].0.score() {
                     if self.full {
-                        self.seg.update(*bi, leaf.score);
+                        self.seg.update(*bi, score);
                     }
-                    self.selected[*bi] = leaf;
+                    self.selected[*bi] = (cand, parent);
                 }
             }
             else if self.full {
                 let i = self.seg.all().1;
-                self.hash_to_idx.remove(&self.selected[i].hash);
-                self.hash_to_idx.insert(leaf.hash, i);
-                self.seg.update(i, leaf.score);
-                self.selected[i] = leaf;
+                self.hash_to_idx.remove(&self.selected[i].0.hash());
+                self.hash_to_idx.insert(hash, i);
+                self.seg.update(i, score);
+                self.selected[i] = (cand, parent);
             }
             else {
                 let i = self.selected.len();
-                self.hash_to_idx.insert(leaf.hash, i);
-                self.selected.push(leaf);
+                self.hash_to_idx.insert(hash, i);
+                self.selected.push((cand, parent));
 
                 if self.width == self.selected.len() {
                     self.full = true;
                     for i in 0..self.width {
-                        self.seg.unfix_set(i, self.selected[i].score);
+                        self.seg.unfix_set(i, self.selected[i].0.score());
                     }
                     self.seg.fix();
                 }
@@ -274,6 +237,3 @@ pub mod ettbeam {
         }
     }
 }
-
-
-

@@ -8,3 +8,4 @@
 | AHC006 | 4 | 焼きなまし 遷移先貪欲選定  |
 | AHC007 | 2 | MonteCarlo Optuna(?) |
 | AHC009 | 1 | 焼きなまし DequeState 初期解の多様性 |
+| AHC028 | 8 | ビームサーチ 下界評価 |
