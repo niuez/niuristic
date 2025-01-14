@@ -11,7 +11,7 @@ fn main() {
     }
     let init_state = State {
         turn: 0,
-        max_x: 683000,
+        max_x: 573000,
         area_acc: area_acc.clone(),
         max_y: 0,
         rects,
@@ -21,10 +21,11 @@ fn main() {
         free_spaces: 0,
         dead_col: 0,
         dead_line: 0,
+        dead_flag: 0,
         sh: 0,
     };
     let width = 10000;
-    let mut beam = BeamSearch::new(400000, input.N + 1, init_state);
+    let mut beam = BeamSearch::new(600000, input.N + 1, init_state);
     let mut selector = SortSelector::new(width);
     for t in 0..input.N {
         selector.clear();
@@ -46,7 +47,7 @@ fn main() {
             for t in 0..input.N {
                 let ci = ans[t].col;
                 let rot = ans[t].rot;
-                println!("# {} {} {} {} {}", ans[t].dead_space, ans[t].free_space, area_acc[t + 1], ans[t].before_idx, ans[t].next_idx);
+                println!("# {} {} {} {:?}", ans[t].dead_space, ans[t].free_space, area_acc[t + 1], ans[t].before_next_idx);
                 println!("{} {} {} {}", t, rot as usize, 'U', last[ci]);
                 last[ci] = t as isize;
             }
@@ -74,6 +75,7 @@ struct State {
     free_spaces: i64,
     dead_col: usize,
     dead_line: i64,
+    dead_flag: u64,
     sh: u64,
 }
 
@@ -81,14 +83,14 @@ struct State {
 struct Action {
     col: usize,
     rot: bool,
-    next_idx: usize,
-    before_idx: usize,
+    before_next_idx: Vec<(usize, usize)>,
     dead_space: i64,
     free_space: i64,
     next_max_y: i64,
     before_max_y: i64,
     dead_col_delta: usize,
     dead_line_delta: i64,
+    before_next_dead_flag: (u64, u64),
     placed: ColumnPlaced,
 }
 
@@ -104,14 +106,15 @@ impl BeamState for State {
             self.col_idx.push(0);
         }
         self.col_placed[act.col].push(act.placed.clone());
-        if act.col > 0 {
-            self.col_idx[act.col - 1] = act.next_idx;
+        for i in 0..act.before_next_idx.len() {
+            self.col_idx[act.col - 1 - i] = act.before_next_idx[i].1;
         }
         self.dead_spaces += act.dead_space;
         self.free_spaces += act.free_space;
         self.max_y = act.next_max_y;
         self.dead_col += act.dead_col_delta;
         self.dead_line += act.dead_line_delta;
+        self.dead_flag = act.before_next_dead_flag.1;
         self.turn += 1;
         self.sh += 1;
     }
@@ -122,8 +125,9 @@ impl BeamState for State {
         self.max_y = act.before_max_y;
         self.dead_col -= act.dead_col_delta;
         self.dead_line -= act.dead_line_delta;
-        if act.col > 0 {
-            self.col_idx[act.col - 1] = act.before_idx;
+        self.dead_flag = act.before_next_dead_flag.0;
+        for i in 0..act.before_next_idx.len() {
+            self.col_idx[act.col - 1 - i] = act.before_next_idx[i].0;
         }
         self.col_placed[act.col].pop();
         if self.col_placed[act.col].len() == 0 {
@@ -134,6 +138,7 @@ impl BeamState for State {
     fn next_acts(&self) -> Self::Acts {
         let mut acts = vec![];
         for c in self.dead_col..=self.col_placed.len() {
+            if (1 << c) & self.dead_flag > 0 { continue; }
             for r in [false, true] {
                 let (h, w) = self.rects[self.turn].get(r);
                 let x = self.col_placed.get(c).map(|placed| placed.last().unwrap().x_right).unwrap_or(0);
@@ -142,89 +147,76 @@ impl BeamState for State {
                     acts.push(Action {
                         col: c,
                         rot: r,
-                        next_idx: !0,
-                        before_idx: !0,
+                        before_next_idx: vec![],
                         dead_space: 0,
                         free_space: (self.max_y.max(w) - self.max_y) * self.max_x - h * w,
                         before_max_y: self.max_y,
                         next_max_y: self.max_y.max(w),
                         dead_col_delta: 0,
                         dead_line_delta: 0,
+                        before_next_dead_flag: (self.dead_flag, self.dead_flag),
                         placed: ColumnPlaced { x_left: x, x_right: x + h, y: w },
                     });
                 }
                 else {
-                    let mut idx = self.col_idx[c - 1];
+                    let mut ref_c = c;
                     let mut dead_space = 0;
                     let mut dead_x = 0;
                     let mut undead_x = 0;
                     let mut max_y = 0;
                     let mut free_space = 0;
-                    while idx < self.col_placed[c - 1].len() {
-                        let l = x.max(self.col_placed[c - 1][idx].x_left);
-                        let r = (x + h).min(self.col_placed[c - 1][idx].x_right);
-                        if max_y < self.col_placed[c - 1][idx].y {
-                            dead_x += undead_x;
-                            undead_x = r - l;
-                            dead_space += dead_x * (self.col_placed[c - 1][idx].y - max_y);
-                            free_space -= dead_x * (self.col_placed[c - 1][idx].y - max_y);
-                            max_y = self.col_placed[c - 1][idx].y;
+                    let mut before_next_idx = vec![];
+                    let mut next_dead_flag = self.dead_flag;
+                    let mut last_x_right = 0;
+                    while ref_c > 0 {
+                        ref_c -= 1;
+                        let mut idx = self.col_idx[ref_c];
+                        while idx < self.col_placed[ref_c].len() {
+                            let l = x.max(self.col_placed[ref_c][idx].x_left);
+                            let r = (x + h).min(self.col_placed[ref_c][idx].x_right);
+                            if max_y < self.col_placed[ref_c][idx].y {
+                                dead_x += undead_x;
+                                undead_x = r - l;
+                                dead_space += dead_x * (self.col_placed[ref_c][idx].y - max_y);
+                                max_y = self.col_placed[ref_c][idx].y;
+                            }
+                            else {
+                                dead_x += r - l;
+                                dead_space += (r - l) * (max_y - self.col_placed[ref_c][idx].y);
+                            }
+                            last_x_right = self.col_placed[ref_c][idx].x_right;
+                            if x + h < self.col_placed[ref_c][idx].x_right {
+                                break;
+                            }
+                            idx += 1;
                         }
-                        else {
-                            dead_x += r - l;
-                            dead_space += (r - l) * (max_y - self.col_placed[c - 1][idx].y);
-                            free_space -= (r - l) * (max_y - self.col_placed[c - 1][idx].y);
-                        }
-                        if x + h < self.col_placed[c - 1][idx].x_right {
+                        before_next_idx.push((self.col_idx[ref_c], idx));
+                        if idx < self.col_placed[ref_c].len() {
                             break;
                         }
-                        idx += 1;
+                        next_dead_flag |= 1 << ref_c;
+                    }
+                    if last_x_right < x + h {
+                        dead_space += (x + h - last_x_right) * max_y;
                     }
                     free_space += (self.max_y.max(max_y + w) - self.max_y) * self.max_x - h * w;
-                    if idx < self.col_placed[c - 1].len() {
-                        if self.max_x - (x + h) >= 30000 {
-                            acts.push(Action {
-                                col: c,
-                                rot: r,
-                                next_idx: idx,
-                                before_idx: self.col_idx[c - 1],
-                                before_max_y: self.max_y,
-                                next_max_y: self.max_y.max(max_y + w),
-                                dead_space,
-                                free_space,
-                                dead_col_delta: 0,
-                                dead_line_delta: 0,
-                                placed: ColumnPlaced { x_left: x, x_right: x + h, y: max_y + w },
-                            });
-                        }
-                        else {
-                            let mut line = self.dead_line;
-                            {
-                                dead_space += (max_y + w - line) * (self.max_x - (x + h));
-                                line = max_y + w;
-                            }
-                            acts.push(Action {
-                                col: c,
-                                rot: r,
-                                next_idx: idx,
-                                before_idx: self.col_idx[c - 1],
-                                before_max_y: self.max_y,
-                                next_max_y: self.max_y.max(max_y + w),
-                                dead_space,
-                                free_space,
-                                dead_col_delta: 1,
-                                dead_line_delta: line - self.dead_line,
-                                placed: ColumnPlaced { x_left: x, x_right: x + h, y: max_y + w },
-                            });
-                        }
+                    if self.max_x - (x + h) >= 30000 {
+                        acts.push(Action {
+                            col: c,
+                            rot: r,
+                            before_next_idx,
+                            before_max_y: self.max_y,
+                            next_max_y: self.max_y.max(max_y + w),
+                            dead_space,
+                            free_space,
+                            dead_col_delta: 0,
+                            dead_line_delta: 0,
+                            before_next_dead_flag: (self.dead_flag, next_dead_flag),
+                            placed: ColumnPlaced { x_left: x, x_right: x + h, y: max_y + w },
+                        });
                     }
                     else {
                         let mut line = self.dead_line;
-                        for i in self.dead_col..c {
-                            let p = self.col_placed[i].last().unwrap();
-                            dead_space += (p.y - line) * (self.max_x - p.x_right);
-                            line = p.y;
-                        }
                         {
                             dead_space += (max_y + w - line) * (self.max_x - (x + h));
                             line = max_y + w;
@@ -232,14 +224,14 @@ impl BeamState for State {
                         acts.push(Action {
                             col: c,
                             rot: r,
-                            next_idx: idx,
-                            before_idx: self.col_idx[c - 1],
+                            before_next_idx,
                             before_max_y: self.max_y,
                             next_max_y: self.max_y.max(max_y + w),
                             dead_space,
                             free_space,
-                            dead_col_delta: c + 1 - self.dead_col,
+                            dead_col_delta: c - self.dead_col + 1,
                             dead_line_delta: line - self.dead_line,
+                            before_next_dead_flag: (self.dead_flag, next_dead_flag),
                             placed: ColumnPlaced { x_left: x, x_right: x + h, y: max_y + w },
                         });
                     }
@@ -250,7 +242,7 @@ impl BeamState for State {
         acts
     }
     fn score(&self) -> Self::Score {
-        self.dead_spaces + (self.free_spaces - self.area_acc[self.turn]).max(0)
+        self.dead_spaces + (self.free_spaces - self.dead_spaces - self.area_acc[self.turn]).max(0)
     }
     fn hash(&self) -> u64 {
         self.sh
