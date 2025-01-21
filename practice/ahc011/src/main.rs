@@ -25,7 +25,7 @@ fn pop_count(i: u8, j: u8, d: usize) -> i64 {
 fn main() {
     get_time();
     let input = Input::stdin();
-    let mut state = State::new(&input);
+    let mut state = comp_sa::State::new(&input);
     let place = state.solve(1.5, &input);
 
     let ch = " ╴╵┘╶─└┴╷┐│┤┌┬├┼".chars().collect_vec();
@@ -168,19 +168,27 @@ impl BeamState for AnsState {
     }
 }
 
-
 struct State {
+    C: Vec<u8>,
+}
+
+
+mod comp_sa {
+
+use super::*;
+
+pub struct State {
     place: Vec<usize>,
     C: Vec<u8>,
     S: usize,
     delta: Vec<Vec<(usize, usize)>>,
-    check: Vec<Vec<(usize, usize)>>,
+    pub check: Vec<Vec<(usize, usize)>>,
     outer: Vec<Vec<usize>>,
     dist: Vec<Vec<i64>>, // dist[self.place[i]][i]
 }
 
 impl State {
-    fn new(input: &Input) -> State {
+    pub fn new(input: &Input) -> State {
         let N = input.N;
         let mut delta = vec![vec![]; N * N];
         let mut check = vec![vec![]; N * N];
@@ -269,7 +277,7 @@ impl State {
         false
     }
 
-    fn solve(&mut self, TL: f64, input: &Input) -> Vec<usize> {
+    pub fn solve(&mut self, TL: f64, input: &Input) -> Vec<usize> {
         let mut now_comps = self.count_components();
         let mut now_dist = 0;
         let mut swap_cnt = 0;
@@ -338,6 +346,7 @@ impl State {
 
         best.1
     }
+}
 }
 
 struct Input {
