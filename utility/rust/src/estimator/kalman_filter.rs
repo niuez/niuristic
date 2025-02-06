@@ -18,8 +18,8 @@ impl KalmanFilter {
         let cs = c.clone() * self.s.clone();
         let cscr = cs.clone() * c.transpose() + r;
         let scsr_inv = Cholesky::new(cscr).unwrap();
-        let k = scsr_inv.solve(&cs).transpose();
-        self.s -= k.clone() * cs;
-        self.m += k * (y - c * self.m.clone());
+        let k = scsr_inv.solve(&cs);
+        self.s -= k.tr_mul(&cs);
+        self.m += k.tr_mul(&(y - c * self.m.clone()));
     }
 }
