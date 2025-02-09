@@ -12,4 +12,3 @@ rand_pcg = "=0.3.1"
 itertools = "=0.11.0"
 proconio = { version = "=0.4.5", features = ["derive"] }
 once_cell = "1.20.1"
-visualizer_shapes = { git = "https://github.com/niuez/egui_visualizer" }

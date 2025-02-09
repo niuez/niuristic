@@ -66,11 +66,14 @@ fn main() {
                 T = T0 * (1.0 - p) + T1 * p;
             }
             let query = mt.gen_range(0.0..1.0);
-            if query <= 0.50 {
+            if query <= 0.85 {
                 let i = mt.gen_range(0..N);
                 let L = input.S[i + 1] - input.S[i];
                 let chi = mt.gen_range(0..=L);
-                if chi < L && V[input.G[input.S[i] + chi]] == 10 {
+                if chi < L && (V[input.G[input.S[i] + chi]] == 10 || V[input.G[input.S[i] + chi]] + 1 == V[i]) {
+                    continue 'LOOP;
+                }
+                if chi == L && V[i] == 0 {
                     continue 'LOOP;
                 }
                 let before_v = V[i];
@@ -208,6 +211,186 @@ fn main() {
             }
         }
     }
+
+    /*
+
+    {
+        use visualizer_shapes::*;
+        
+        let mut frames = Frames::new();
+        {
+            let mut frame = Frame::new(pos(0.0, 0.0), pos(1000.0, 1000.0));
+            for &(i, j) in &input.E {
+                frame = frame.add_element(
+                    Path::new()
+                    .add_pos(pos(input.P[i].0 as f32, input.P[i].1 as f32))
+                    .add_pos(pos(input.P[j].0 as f32, input.P[j].1 as f32))
+                    .stroke(Color::newa(0, 0, 0, 50), 1.0)
+                    .element()
+                );
+            }
+
+            let mut P = [!0; N];
+
+            for &(u, v) in &input.E {
+                if V[u] + 1 == V[v] {
+                    P[v] = u;
+                }
+                if V[v] + 1 == V[u] {
+                    P[u] = v;
+                }
+            }
+
+            let mut uf = UnionFind::new(N);
+
+            for i in 0..N {
+                let j = P[i];
+                if j == !0 { continue }
+                uf.unite(i, j);
+            }
+
+            for i in 0..N {
+                let j = P[i];
+                if j == !0 { continue }
+                frame = frame.add_element(
+                    Path::new()
+                    .add_pos(pos(input.P[i].0 as f32, input.P[i].1 as f32))
+                    .add_pos(pos(input.P[j].0 as f32, input.P[j].1 as f32))
+                    .stroke(Color::tag(uf.root(i)), 2.0)
+                    .element()
+                );
+            }
+
+            for i in 0..N {
+                frame = frame.add_element(
+                    Circle::new(pos(input.P[i].0 as f32, input.P[i].1 as f32), 3.0)
+                    .stroke(Color::new(0, 0, 0), 1.0)
+                    .fill(Color::turbo(V[i] as f32 / 11.0 * 0.8 + 0.2))
+                    .element()
+                    .with_msg(format!("{} {}", i, V[i]))
+                );
+            }
+            frames = frames.add_frame(frame);
+        }
+
+        {
+            let mut frame = Frame::new(pos(0.0, 0.0), pos(1000.0, 1000.0));
+            for &(s, t) in &input.E {
+                let mut ok = true;
+                {
+                    if V[s] == V[t] + 1 || V[t] == 10 { ok = false; }
+                    let i = s;
+                    let before_v = V[i];
+                    for &j in input.nexts(i) {
+                        if V[j] == 0 || V[j] - before_v != 1 { continue; }
+                        if neibor_levels[j * 12 + before_v as usize] <= 1 {
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
+                let mut ok2 = true;
+                {
+                    let i = t;
+                    let before_v = V[i];
+                    if V[t] == V[s] + 1 || V[s] == 10 { ok2 = false; }
+                    for &j in input.nexts(i) {
+                        if V[j] == 0 || V[j] - before_v != 1 { continue; }
+                        if neibor_levels[j * 12 + before_v as usize] <= 1 {
+                            ok2 = false;
+                            break;
+                        }
+                    }
+                }
+                if ok || ok2 {
+                    frame = frame.add_element(
+                        Path::new()
+                        .add_pos(pos(input.P[s].0 as f32, input.P[s].1 as f32))
+                        .add_pos(pos(input.P[t].0 as f32, input.P[t].1 as f32))
+                        .stroke(Color::newa(if ok { 255 } else { 0 }, 0, if ok2 { 255 } else { 0 }, 255), 2.0)
+                        .element()
+                    );
+                }
+            }
+
+            for i in 0..N {
+                frame = frame.add_element(
+                    Circle::new(pos(input.P[i].0 as f32, input.P[i].1 as f32), 3.0)
+                    .stroke(Color::new(0, 0, 0), 1.0)
+                    .fill(Color::turbo(V[i] as f32 / 11.0 * 0.8 + 0.2))
+                    .element()
+                    .with_msg(format!("{} {}", i, V[i]))
+                );
+            }
+            frames = frames.add_frame(frame);
+        }
+
+        {
+            let mut frame = Frame::new(pos(0.0, 0.0), pos(1000.0, 1000.0));
+            for &(s, t) in &input.E {
+                let mut ok = false;
+                let i = s;
+                let j = t;
+
+                'COND: {
+                    if V[i] == V[j] {
+                        break 'COND;
+                    }
+
+                    if V[i] - V[j] != 1 && V[i] > 0 && neibor_levels[j * 12 + V[i] as usize - 1] == 0 {
+                        break 'COND;
+                    }
+                    if V[j] - V[i] != 1 && V[j] > 0 && neibor_levels[i * 12 + V[j] as usize - 1] == 0 {
+                        break 'COND;
+                    }
+                    // are the neiborhoods valid ?
+                    {
+                        for &k in input.nexts(i) {
+                            if k == j || V[k] == 0 { continue; }
+                            if V[k] - V[i] == 1 {
+                                if neibor_levels[k * 12 + V[i] as usize] <= 1 && !input.B.get(k * N + j) {
+                                    break 'COND;
+                                }
+                            }
+                        }
+                    }
+                    {
+                        for &k in input.nexts(j) {
+                            if k == i || V[k] == 0 { continue; }
+                            if V[k] - V[j] == 1 {
+                                if neibor_levels[k * 12 + V[j] as usize] <= 1 && !input.B.get(k * N + i) {
+                                    break 'COND;
+                                }
+                            }
+                        }
+                    }
+                    ok = true;
+                }
+                if ok {
+                    frame = frame.add_element(
+                        Path::new()
+                        .add_pos(pos(input.P[s].0 as f32, input.P[s].1 as f32))
+                        .add_pos(pos(input.P[t].0 as f32, input.P[t].1 as f32))
+                        .stroke(Color::newa(if ok { 255 } else { 0 }, 0, 0, 255), 2.0)
+                        .element()
+                    );
+                }
+            }
+
+            for i in 0..N {
+                frame = frame.add_element(
+                    Circle::new(pos(input.P[i].0 as f32, input.P[i].1 as f32), 3.0)
+                    .stroke(Color::new(0, 0, 0), 1.0)
+                    .fill(Color::turbo(V[i] as f32 / 11.0 * 0.8 + 0.2))
+                    .element()
+                    .with_msg(format!("{} {}", i, V[i]))
+                );
+            }
+            frames = frames.add_frame(frame);
+        }
+        frames.encode_to_file("vis.vis").unwrap();
+    }
+    */
     max_score = now_score;
     max_answer = V.clone();
 
