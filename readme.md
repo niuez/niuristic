@@ -17,6 +17,7 @@ niuezがヒューリスティックについて勉強したメモをまとめて
     - [高速化](./algorithm/beam_search/beam_search_speedup.md)
     - [評価関数](./algorithm/beam_search/beam_search_evaluation.md)
     - ハッシュの設計
+- [モンテカルロ法](./algorithm/monte_calro)
 - 推定
     - 注意!!!! 中の人は一回も推定回で勝てていません
     - [ギブスサンプリング](./algorithm/gibbs_sampling)
