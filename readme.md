@@ -10,7 +10,7 @@ niuezがヒューリスティックについて勉強したメモをまとめて
         - 遷移貪欲化
         - Deque State
     - [非実行可能解をペナルティにするやつ](./algorithm/simulated_annealing/sa_infeasible_penalty.md)
-    - 部分破壊+再構築
+    - [部分破壊+再構築](./algorithm/simulated_annealing/sa_destruct_rebuild.md)
     - [多様性](./algorithm/simulated_annealing/sa_variety.md)
 - ビームサーチ
     - ビームサーチの基礎
