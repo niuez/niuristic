@@ -1,5 +1,34 @@
 #![allow(non_snake_case, dead_code)]
 
+
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct N2pPos<const N: usize, const P: usize, const L: usize>(pub usize);
+
+impl<const N: usize, const P: usize, const L: usize> N2pPos<N, P, L> {
+    // lurd
+    const D: [usize; 4] = [1usize.wrapping_neg(), P.wrapping_neg(), 1, P];
+
+    pub fn xy(i: usize, j: usize) -> Self {
+        Self(i * P + j)
+    }
+
+    pub fn to_xy(&self) -> (usize, usize) {
+        (self.0 >> L, self.0 & (P - 1))
+    }
+
+    pub fn delta(&self, di: usize) -> Option<Self> {
+        let v = self.0.wrapping_add(Self::D[di]);
+        if v & (P - 1) < N && v < N * P {
+            Some(Self(v))
+        }
+        else {
+            None
+        }
+    }
+}
+
+
+
 // N2pが簡易的かつ最速
 
 fn Np1(N: usize, T: usize) {
