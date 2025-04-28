@@ -1,12 +1,20 @@
 #![allow(non_snake_case, dead_code)]
 
 
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct N2pPos<const N: usize, const P: usize, const L: usize>(pub usize);
 
 impl<const N: usize, const P: usize, const L: usize> N2pPos<N, P, L> {
     // lurd
     const D: [usize; 4] = [1usize.wrapping_neg(), P.wrapping_neg(), 1, P];
+
+    pub fn dang() -> Self {
+        Self(!0)
+    }
+
+    pub fn is_dang(&self) -> bool {
+        self.0 == !0
+    }
 
     pub fn xy(i: usize, j: usize) -> Self {
         Self(i * P + j)
@@ -26,6 +34,13 @@ impl<const N: usize, const P: usize, const L: usize> N2pPos<N, P, L> {
         }
     }
 }
+
+impl<const N: usize, const P: usize, const L: usize> Default for N2pPos<N, P, L> {
+    fn default() -> Self {
+        Self::dang()
+    }
+}
+
 
 
 
