@@ -7,8 +7,6 @@ pub mod clonebeam {
         type Action: Default + Clone + std::fmt::Debug;
         type Candidates: IntoIterator<Item=(Self, Self::Action)>;
         type Score: Default + Copy + Ord;
-        fn forward(&mut self, act: &Self::Action);
-        fn backward(&mut self, act: &Self::Action);
         fn next_states(&self) -> Self::Candidates;
         fn score(&self) -> Self::Score;
         fn hash(&self) -> u64;
