@@ -13,6 +13,11 @@ impl<T: Copy, const N: usize> FixedQueue<T, N> {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.l = 0;
+        self.r = 0;
+    }
+
     pub fn push(&mut self, x: T) {
         self.v[self.r] = x;
         self.r += 1;
